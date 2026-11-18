@@ -1,7 +1,8 @@
 local addonName = ...
 
 local TITLE = "Auto Gratulations"
-local MAX_MESSAGE_LENGTH = 200 -- leaves room for the name within the 255-byte chat limit
+local MAX_MESSAGE_LENGTH = 200 -- leaves room for the name within the chat limit
+local MAX_CHAT_LENGTH = 255 -- longer messages make SendChatMessage raise an error
 
 local DEFAULT_MESSAGES = {
     "gz {name} on {level}!",
@@ -34,6 +35,12 @@ local function Print(text)
     print("|cff80ff80" .. TITLE .. ":|r " .. text)
 end
 
+-- Cuts at a byte limit without leaving half a UTF-8 character behind.
+local function Truncate(text, limit)
+    if #text <= limit then return text end
+    return (string.gsub(string.sub(text, 1, limit), "[\192-\255]?[\128-\191]*$", ""))
+end
+
 local function Messages()
     return db.messages or DEFAULT_MESSAGES
 end
@@ -44,14 +51,16 @@ local function SetMessagesFromText(text)
     for line in string.gmatch(text, "[^\r\n]+") do
         line = strtrim(line)
         if line ~= "" then
-            table.insert(list, string.sub(line, 1, MAX_MESSAGE_LENGTH))
+            table.insert(list, Truncate(line, MAX_MESSAGE_LENGTH))
         end
     end
     db.messages = list[1] and list or nil
 end
 
 local function Format(message, name, level)
-    return (string.gsub(message, "{(%a+)}", { name = name, level = level }))
+    local text = string.gsub(message, "{(%a+)}", { name = name, level = level })
+    -- A lone "|" starts an escape code and the game refuses to send the message.
+    return Truncate((string.gsub(text, "|", "||")), MAX_CHAT_LENGTH)
 end
 
 local function NextMessage(advance)
@@ -85,6 +94,7 @@ local function Send()
     pending = nil
     -- Addon chat is blocked during encounters and on restricted maps.
     if not db.enabled or not IsInGroup() or C_ChatInfo.InChatMessagingLockdown() then return end
+    if IsInRaid() and not db.raids then return end -- the party became a raid during the delay
     if db.target == "WHISPER" then
         for _, ding in ipairs(dings) do
             C_ChatInfo.SendChatMessage(Text({ ding.name }, ding.level), "WHISPER", nil, ding.target)
@@ -128,10 +138,11 @@ local function Scan(announce)
                 seen[guid] = true
                 local level = UnitLevel(unit)
                 local previous = levels[guid]
-                -- Unknown levels (offline, out of range) must never replace a known one.
-                if not issecretvalue(level) and level > 0 then
+                -- Unknown levels (offline, out of range) must never replace a known one,
+                -- and a temporarily lowered level must not look like a ding when it ends.
+                if not issecretvalue(level) and level > (previous or 0) then
                     levels[guid] = level
-                    if announce and previous and level > previous then
+                    if announce and previous then
                         local name, realm = UnitFullName(unit)
                         if name and not issecretvalue(name) then
                             Congratulate(name, realm, level)
@@ -169,11 +180,6 @@ local function CreateMessagesPanel()
         if userInput then SetMessagesFromText(self:GetText()) end
     end)
 
-    local function Refresh()
-        scroll.EditBox:SetText(table.concat(Messages(), "\n"))
-        maxBox:SetText(db.maxMessage)
-    end
-
     local maxLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     maxLabel:SetPoint("TOPLEFT", scroll, "BOTTOMLEFT", -6, -20)
     maxLabel:SetText("Max level message (leave empty to use the list above)")
@@ -183,19 +189,34 @@ local function CreateMessagesPanel()
     maxBox:SetSize(560, 22)
     maxBox:SetAutoFocus(false)
     maxBox:SetMaxLetters(MAX_MESSAGE_LENGTH)
+    maxBox:SetScript("OnEnterPressed", maxBox.ClearFocus)
     maxBox:HookScript("OnTextChanged", function(self, userInput)
         if userInput then db.maxMessage = strtrim(self:GetText()) end
     end)
+
+    local function Refresh()
+        scroll.EditBox:SetText(table.concat(Messages(), "\n"))
+        maxBox:SetText(db.maxMessage)
+    end
 
     local reset = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     reset:SetPoint("TOPLEFT", maxBox, "BOTTOMLEFT", -6, -16)
     reset:SetSize(150, 22)
     reset:SetText("Restore defaults")
-    reset:SetScript("OnClick", function()
-        db.messages = nil
-        db.maxMessage = defaults.maxMessage
-        Refresh()
-    end)
+    StaticPopupDialogs["AUTOGRATULATIONS_RESET"] = {
+        text = "Replace all " .. TITLE .. " messages with the defaults?",
+        button1 = YES,
+        button2 = NO,
+        OnAccept = function()
+            db.messages = nil
+            db.maxMessage = defaults.maxMessage
+            Refresh()
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+    }
+    reset:SetScript("OnClick", function() StaticPopup_Show("AUTOGRATULATIONS_RESET") end)
 
     local test = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     test:SetPoint("LEFT", reset, "RIGHT", 8, 0)

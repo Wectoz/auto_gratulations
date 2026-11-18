@@ -37,7 +37,7 @@ Open them with `/ag`, or under **Options > AddOns > Auto Gratulations**.
 The **Messages** page under it holds the message list: one message per line,
 with `{name}` for the player's name and `{level}` for their new level. Changes
 are saved as you type. Reaching max level uses the separate **Max level
-message**; empty it to use the list instead. **Restore defaults** brings back the built-in five and
+message**; empty it to use the list instead. **Restore defaults** asks first, then brings back the built-in five and
 **Preview in chat** shows the next message only to you.
 
 Commands: `/ag` opens the options, `/ag on` and `/ag off` toggle the addon,
@@ -74,11 +74,11 @@ The addon has not yet been run inside the WoW Forever client. To verify in game:
 Commit, then build the zip for CurseForge, Wago or a GitHub release. It holds
 only what the game needs, inside an `auto_gratulations` folder:
 
-    git archive --prefix=auto_gratulations/ -o auto_gratulations-2.0.0.zip HEAD
+    git archive --prefix=auto_gratulations/ -o auto_gratulations-2.0.1.zip HEAD
 
 ## Feedback and contributions
 
-Bug reports and pull requests are welcome on [GitHub](https://github.com/Wectoz/AutoGratulations/issues).
+Bug reports and pull requests are welcome on [GitHub](https://github.com/Wectoz/auto_gratulations/issues).
 Include your WoW client version, addon version, steps to reproduce, and any Lua
 error message. Remove personal information before posting logs or screenshots.
 

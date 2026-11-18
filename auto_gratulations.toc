@@ -2,8 +2,9 @@
 ## Title: Auto Gratulations
 ## Notes: Congratulates group members when they gain a level.
 ## Author: Philip
-## Version: 2.0.0
+## Version: 2.0.1
 ## IconTexture: Interface\AddOns\auto_gratulations\icon
+## X-Curse-Project-ID: 1814287
 ## SavedVariables: AutoGratulationsDB
 
 AutoGratulations.lua

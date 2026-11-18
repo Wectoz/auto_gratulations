@@ -2,14 +2,18 @@
 -- Stubs just enough of the WoW API to exercise level tracking and message sending.
 local units, sent, timers, raid, lockdown = {}, {}, {}, false, false
 local handler
+local scripts = {} -- OnShow/OnClick handlers of the options UI, run at the end
 
 -- Stands in for any UI object: every field and call yields another dummy.
 local dummy = setmetatable({}, {})
 getmetatable(dummy).__index = function() return dummy end
 getmetatable(dummy).__call = function() return dummy end
+function dummy.SetScript(_, name, fn) if type(fn) == "function" then table.insert(scripts, fn) end end
 Settings = setmetatable({ VarType = { Boolean = 1, Number = 2, String = 3 } }, getmetatable(dummy))
 MinimalSliderWithSteppersMixin = { Label = { Right = 2 } }
 SlashCmdList = {}
+YES, NO, StaticPopupDialogs = "Yes", "No", {}
+function StaticPopup_Show(name) StaticPopupDialogs[name].OnAccept() end
 function strtrim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
 function issecretvalue() return false end
 function CreateFrame()
@@ -32,6 +36,10 @@ C_ChatInfo = {
     InChatMessagingLockdown = function() return lockdown end,
     SendChatMessage = function(text, chatType, _, target) table.insert(sent, { text, chatType, target }) end,
 }
+
+-- Any global the addon reads that is not stubbed above (or a misplaced local) is an error.
+setmetatable(_G, { __index = function(_, key) error("undefined global " .. tostring(key), 2) end })
+AutoGratulationsDB = false
 
 assert(loadfile("AutoGratulations.lua"))("auto_gratulations")
 
@@ -140,5 +148,16 @@ units.raid1.level = 11 -- our own ding
 units.raid2.level = 17
 fire("UNIT_LEVEL", "raid2")
 expect(4, "Ann 17 {other} %d", "RAID")
+
+db.messages = { "a|b " .. string.rep("\195\169", 200) .. " {name}" } -- pipes and over-long text
+units.raid2.level = 18
+fire("UNIT_LEVEL", "raid2")
+flush()
+local long = sent[#sent][1]
+assert(long:sub(1, 5) == "a||b " and #long <= 255 and #long % 2 == 1, "bad truncation: " .. #long)
+
+assert(#scripts == 3, "expected 3 UI scripts, got " .. #scripts)
+for _, fn in ipairs(scripts) do fn(dummy) end -- the options page must open and its buttons work
+assert(db.messages == nil, "restore defaults did not reset the list")
 
 print("ok")
