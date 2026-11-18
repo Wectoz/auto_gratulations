@@ -2,51 +2,79 @@
 
 > **Experimental / work in progress.** This is an unfinished test version, not a stable release. In-game testing is still required; bugs and client compatibility issues are expected.
 
-Automatically sends a congratulations message to PARTY chat when another party
-member's observed level increases. Five messages rotate in order, with the next
-message remembered between sessions. Your own level-ups and raids are ignored.
+<img src="icon.png" width="64" alt="Auto Gratulations icon">
+
+Automatically congratulates group members in chat when they gain a level. Your
+own level-ups are ignored.
 
 ## Installation
 
-1. Copy this entire `AutoGratulations` folder into your WoW installation's
+1. Copy this entire `auto_gratulations` folder into your WoW Forever installation's
    `Interface/AddOns` folder.
 2. Restart WoW and enable **Auto Gratulations** in the character-selection AddOns menu.
 3. Join a party. The addon starts enabled.
 
-The client version for WoW Forever has not yet been confirmed. The manifest
-currently targets WoW 3.3.5 (`30300`). For 1.12.1 use `11200`; for 2.4.3 use
-`20400` on the first line of [AutoGratulations.toc](AutoGratulations.toc). The code uses older
-WoW APIs and supports legacy event arguments, but needs testing in your client.
+Targets WoW Forever 1.60.1 (build 70959, interface `16001`), checked against the
+client UI source at
+[Gethe/wow-ui-source@3d8abb1](https://github.com/Gethe/wow-ui-source/tree/3d8abb1da73acd38e412e24fb3f99454a6392346).
+Run `/dump (select(4, GetBuildInfo()))` in game; if it prints another number, put
+that number on the first line of [auto_gratulations.toc](auto_gratulations.toc).
 
-## Commands and customization
+## Options
 
-- `/autogratulations` displays status and help.
-- `/autogratulations on` enables congratulations.
-- `/autogratulations off` disables congratulations.
+Open them with `/ag`, or under **Options > AddOns > Auto Gratulations**.
 
-Edit the messages at the top of [AutoGratulations.lua](AutoGratulations.lua) to change their
-wording. Keep `%s` (the player's name) before `%d` (their new level) in each message.
+| Option | Default | What it does |
+|---|---|---|
+| Congratulate level-ups | on | Master switch. |
+| Send to | Group chat | Group chat (party, or raid chat in a raid) or a whisper to the player. |
+| Which levels | Every level | Every level, every 5th, or every 10th. Max level always counts. |
+| Shortest delay | 2 s | The wait before sending is random between the two delays (0-10 s). |
+| Longest delay | 5 s | Set equal to the shortest delay for a fixed wait. |
+| Random message order | off | Random pick instead of rotating through the list. |
+| Also in raids | off | Raids are ignored unless this is on. |
+
+The **Messages** page under it holds the message list: one message per line,
+with `{name}` for the player's name and `{level}` for their new level. Changes
+are saved as you type. Reaching max level uses the separate **Max level
+message**; empty it to use the list instead. **Restore defaults** brings back the built-in five and
+**Preview in chat** shows the next message only to you.
+
+Commands: `/ag` opens the options, `/ag on` and `/ag off` toggle the addon,
+`/ag test` previews the next message. `/autogratulations` works too.
 
 ## Behavior and in-game checks
 
-The addon checks party levels once per second. Joining a group, reloading the UI,
-and entering the world establish a baseline without sending congratulations.
-Unknown levels are ignored. A level increase observed after someone returns into
-range can trigger a delayed congratulations; the server must expose their level.
+Levels are read when the game reports a level or group change. Joining a group,
+reloading the UI, and loading screens establish a baseline without sending
+anything. Unknown levels (offline or out-of-range members) are ignored. Levels
+are tracked while the addon is disabled, so enabling it never congratulates an
+old level-up. The game blocks addon chat during boss encounters and in some
+instances; a congratulation due at that moment is skipped, not sent late.
+Group members who level during the same delay share one message per level
+("gz Ann and Bob on 10!"); whispers stay one per player.
 Multiple users running this addon will each send their own congratulations.
 
-To verify in game:
+`lua5.1 tests/test.lua` checks the tracking logic against a stubbed game API.
+The addon has not yet been run inside the WoW Forever client. To verify in game:
 
-1. Join a party: no message should be sent for existing levels.
-2. Have a party member level up: one congratulations should appear in party chat.
-3. Observe another level-up: the next message should be used, with no repeats for
-   an unchanged level.
-4. Disable the addon and observe a level-up: no message should be sent. Enable
-   it again: no retroactive congratulations should be sent.
-5. Leave/rejoin the party or reload the UI: no joining congratulations should
-   appear. Raid groups and your own level-ups should produce no messages.
+1. Log in with no Lua errors; `/ag` opens the options and both pages render.
+2. Join a party: no message should be sent for existing levels.
+3. Have a party member level up: one congratulation appears after the delay.
+4. Change each option and the message list, `/reload`, and confirm they are kept.
+5. Disable the addon and observe a level-up: nothing is sent, also not after
+   enabling it again.
+6. Have two members level together (a shared quest turn-in): one message names both.
+7. Run `/dump GetMaxPlayerLevel()`: it should print the real level cap, since
+   the max level message relies on it.
+8. Raid groups (with the raid option off) and your own level-ups produce no messages.
 
-This addon has not yet been tested inside WoW.
+## Releasing
+
+Commit, then build the zip for CurseForge, Wago or a GitHub release. It holds
+only what the game needs, inside an `auto_gratulations` folder:
+
+    git archive --prefix=auto_gratulations/ -o auto_gratulations-2.0.0.zip HEAD
 
 ## Feedback and contributions
 

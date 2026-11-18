@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Auto Gratulations
+## Notes: Congratulates group members when they gain a level.
+## Author: Philip
+## Version: 2.0.0
+## IconTexture: Interface\AddOns\auto_gratulations\icon
+## SavedVariables: AutoGratulationsDB
+
+AutoGratulations.lua
